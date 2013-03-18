@@ -53,19 +53,18 @@ sub init {
 
 sub retrieve {
     my ($class, $id) = @_;
-
     my $self = $class->new;
 
     my $session_driver = $self->{__session_driver__};
     my $session_driver_params = $self->{__session_driver_params__};
 
-    my $session = CGI::Session->load( 
-        $session_driver, $id, $session_driver_params
-    );
+    $self->{__session__} = CGI::Session->load( $session_driver, $id, $session_driver_params );
 
-    $self->{cgisession} = $session;
+    foreach my $key (keys %{$self->{__session__}->dataref() || {}}) {
+      $self->{$key} = $self->{__session__}->{_DATA}->{$key};
+    }
 
-    return $self->{cgisession}->{_DATA};
+    return $self;
 }
 
 sub create {
@@ -75,29 +74,38 @@ sub create {
     my $session_driver = $self->{__session_driver__};
     my $session_driver_params = $self->{__session_driver_params__};
 
-    my $session = CGI::Session->new(
-        $session_driver, undef, $session_driver_params
-    );
+    $self->{__session__} = CGI::Session->new( $session_driver, undef, $session_driver_params );
 
-    $self->{cgisession} = $session;
+    foreach my $key (keys %{$self->{__session__}->dataref() || {}}) {
+      $self->{$key} = $self->{__session__}->{_DATA}->{$key};
+    }
 
     return $self;
 }
 
-sub id {
-    return shift->{cgisession}->id;
-}
-
 sub destroy {
     my $self = shift;
-    $self->{cgisession}->delete;
-    $self->{cgisession}->flush;
-    delete $self->{cgisession};
+
+    $self->{__session__}->delete;
+    $self->{__session__}->flush;
+
+    delete $self->{__session__};
 }
 
 sub flush {
     my $self = shift;
-    $self->{cgisession}->flush;
+
+    foreach my $key (keys %{$self || {}}) {
+      $self->{__session__}->param($key, $self->{$key}) if ($key =~ /__sessions/);
+    }
+
+    $self->{__session__}->flush;
+}
+
+sub id {
+    my $self = shift;
+
+    return $self->{__session__}->id;
 }
 
 =head1 AUTHOR
